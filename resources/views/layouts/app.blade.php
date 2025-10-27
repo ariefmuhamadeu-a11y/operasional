@@ -1,4 +1,4 @@
-{{-- resources/views/layouts/operasional.blade.php --}}
+{{-- resources/views/layouts/operasional.blade.php
 <!doctype html>
 <html
   lang="id"
@@ -476,6 +476,65 @@
       el.addEventListener('hidden.bs.collapse', () => localStorage.setItem(key, 'hide'));
     }
   </script>
+
+  @stack('scripts')
+</body>
+
+</html> --}}
+
+
+
+{{-- resources/views/layouts/operasional.blade.php --}}
+<!doctype html>
+<html
+  lang="id"
+  data-bs-theme="dark"
+>
+
+<head>
+  <meta charset="utf-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+  <title>@yield('title', 'ERP • Operasional')</title>
+
+  {{-- Vendor CSS --}}
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+  >
+
+  {{-- App styles --}}
+  @include('layouts.partials.styles')
+  @stack('head')
+</head>
+
+<body class="with-topbar">
+  {{-- TOPBAR --}}
+  @include('layouts.partials.topbar')
+
+  {{-- SIDEBAR DESKTOP --}}
+  @include('layouts.partials.sidebar')
+
+  {{-- OFFCANVAS MOBILE --}}
+  @include('layouts.partials.offcanvas')
+
+  {{-- KONTEN --}}
+  <main class="content-wrap">
+    @include('layouts.partials.alerts')
+    @yield('content')
+  </main>
+
+  {{-- Vendor JS --}}
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  {{-- Collapse state script --}}
+  @include('layouts.partials.collapse-state')
 
   @stack('scripts')
 </body>

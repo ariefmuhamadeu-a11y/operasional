@@ -11,10 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('order_shipments', function (Blueprint $table) {
-            //
-            $table->string('metode_pembayaran')->nullable();
-        });
+        if (! Schema::hasColumn('order_shipments', 'metode_pembayaran')) {
+            Schema::table('order_shipments', function (Blueprint $table) {
+                $table->string('metode_pembayaran')->nullable()->after('some_existing_column');
+            });
+        }
     }
 
     /**
@@ -22,8 +23,11 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('order_shipments', function (Blueprint $table) {
-            //
-        });
+         // Hapus kolom hanya jika ada (aman untuk SQLite/Laravel 10/11)
+        if (Schema::hasColumn('order_shipments', 'metode_pembayaran')) {
+            Schema::table('order_shipments', function (Blueprint $table) {
+                $table->dropColumn('metode_pembayaran');
+            });
+        }
     }
 };
