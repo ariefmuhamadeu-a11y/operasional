@@ -32,3 +32,14 @@ Route::prefix('master')->name('master.')->group(function () {
         'index', 'create', 'store', 'edit', 'update', 'destroy',
     ]);
 });
+
+// Routes Master Supplier
+Route::prefix('master')->name('master.')->group(function () {
+    Route::resource('suppliers', \App\Http\Controllers\Master\SupplierController::class);
+});
+
+Route::prefix('purchasing')->name('purchasing.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Purchasing\PurchaseInvoiceController::class, 'index'])->name('index');
+    Route::get('/create', [\App\Http\Controllers\Purchasing\PurchaseInvoiceController::class, 'create'])->name('create');
+    Route::post('/', [\App\Http\Controllers\Purchasing\PurchaseInvoiceController::class, 'store'])->name('store');
+});
