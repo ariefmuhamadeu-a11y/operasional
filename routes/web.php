@@ -2,6 +2,7 @@
 use App\Http\Controllers\Master\EmployeeController;
 use App\Http\Controllers\Master\ItemController;
 use App\Http\Controllers\OrderImportController;
+use App\Http\Controllers\Purchasing\PurchaseInvoiceController;
 use Illuminate\Support\Facades\Route;
 
 // Route::get('/shipments', [OrderImportController::class, 'index'])->name('imports.orders.index');
@@ -39,7 +40,9 @@ Route::prefix('master')->name('master.')->group(function () {
 });
 
 Route::prefix('purchasing')->name('purchasing.')->group(function () {
-    Route::get('/', [\App\Http\Controllers\Purchasing\PurchaseInvoiceController::class, 'index'])->name('index');
-    Route::get('/create', [\App\Http\Controllers\Purchasing\PurchaseInvoiceController::class, 'create'])->name('create');
-    Route::post('/', [\App\Http\Controllers\Purchasing\PurchaseInvoiceController::class, 'store'])->name('store');
+    Route::get('/', [PurchaseInvoiceController::class, 'index'])->name('index');
+    Route::get('/create', [PurchaseInvoiceController::class, 'create'])->name('create');
+    Route::post('/', [PurchaseInvoiceController::class, 'store'])->name('store');
+    Route::post('/{invoice}/payments', [PurchaseInvoiceController::class, 'storePayment'])->name('payments.store');
+    Route::post('/{invoice}/status', [PurchaseInvoiceController::class, 'updateStatus'])->name('status.update'); // opsional
 });

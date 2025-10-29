@@ -47,7 +47,7 @@
 
             <!-- PEMBELIAN -->
             <div class="nav-group-title mt-2">Pembelian</div>
-            <a class="nav-link mx-1 mb-1" data-bs-toggle="collapse" href="#navPembelian" role="button"
+            <a class="nav-link mx-1 mb-1" data-bs-toggle="collapse" href="/purchasing" role="button"
                 aria-expanded="false" aria-controls="navPembelian">
                 <i class="bi bi-bag-check me-2"></i> Pembelian
                 <i class="bi bi-chevron-down small ms-auto"></i>
