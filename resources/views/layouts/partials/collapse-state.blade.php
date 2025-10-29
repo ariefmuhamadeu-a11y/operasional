@@ -2,14 +2,14 @@
     // ====== STATE COLLAPSE (desktop & mobile) ======
     const COLLAPSE_DEFAULTS = {
         // Desktop
-        navMaster: 'show', // Master default terbuka
-        navPesanan: 'show',
+        navMaster: 'show',
+        navPesanan: 'hide',
         navPembelian: 'hide',
         navProduksi: 'hide',
 
         // Mobile
-        mMaster: 'show', // Master default terbuka
-        mPesanan: 'show',
+        mMaster: 'show',
+        mPesanan: 'hide',
         mPembelian: 'hide',
         mProduksi: 'hide',
     };
@@ -18,12 +18,11 @@
         // Desktop
         'navMaster', 'navPesanan', 'navPembelian', 'navProduksi',
         // Mobile
-        'mMaster', 'mPesanan', 'mPembelian', 'mProduksi'
+        'mMaster', 'mPesanan', 'mPembelian', 'mProduksi',
     ];
 
     document.addEventListener('DOMContentLoaded', () => {
         IDS.forEach(applyCollapseState);
-        // Lepas anti-kedip
         document.querySelectorAll('.collapse').forEach(el => el.style.visibility = 'visible');
     });
 

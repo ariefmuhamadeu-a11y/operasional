@@ -17,4 +17,9 @@ class Employee extends Model
         'active' => 'boolean',
         'base_rate' => 'decimal:2',
     ];
+
+    public function scopeOperational($q)
+    {
+        return $q->where('role', 'operasional')->where('active', true);
+    }
 }
