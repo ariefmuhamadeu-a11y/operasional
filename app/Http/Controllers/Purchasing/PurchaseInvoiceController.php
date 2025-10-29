@@ -32,11 +32,14 @@ class PurchaseInvoiceController extends Controller
         $dateFrom = $r->get('date_from');
         $dateTo = $r->get('date_to');
 
+        // ===== Base query + eager + aggregate (sum payments) =====
         $query = PurchaseInvoice::query()
             ->with(['supplier:id,store_name'])
+            ->withSum('payments', 'amount') // -> payments_sum_amount
             ->orderByDesc('date')
             ->orderByDesc('id');
 
+        // ===== Filters =====
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
                 $w->where('code', 'like', "%{$q}%")
@@ -51,29 +54,51 @@ class PurchaseInvoiceController extends Controller
         }
         if ($dateFrom) {$query->whereDate('date', '>=', $dateFrom);}
         if ($dateTo) {$query->whereDate('date', '<=', $dateTo);}
+
+        // unpaidOnly:
+        // - kalau kolom paid_total dirawat → cukup whereColumn(paid_total < total)
+        // - kalau tidak, fallback ke subquery SUM(payments.amount)
         if ($unpaidOnly) {
-            $query->whereColumn('paid_total', '<', 'total');
+            $query->where(function ($w) {
+                $w->whereColumn('paid_total', '<', 'total') // case: kolom paid_total ada & dipakai
+                    ->orWhereRaw(
+                        // fallback: kalau paid_total NULL/0 tapi ada payment, pakai sum payments
+                        '(COALESCE(paid_total, 0) = 0 AND (SELECT COALESCE(SUM(pp.amount),0)
+                      FROM purchase_payments pp
+                      WHERE pp.purchase_invoice_id = purchase_invoices.id) < total)'
+                    );
+            });
         }
+
         if ($classId) {
             $query->whereHas('lines', fn($l) => $l->where('item_class_id', $classId));
         }
 
-        // Summary global (sesuai filter)
+        // ===== Summary (pakai effective paid: paid_total ?? payments_sum_amount) =====
         $summary = [
             'count' => (int) (clone $query)->count(),
             'total' => (float) (clone $query)->sum('total'),
-            'paid_total' => (float) (clone $query)->sum('paid_total'),
+            'paid_total' => 0.0,
             'outstanding' => 0.0,
         ];
-        (clone $query)->select(['total', 'paid_total'])->chunk(1000, function ($rows) use (&$summary) {
-            foreach ($rows as $r) {
-                $summary['outstanding'] += max(0, ($r->total ?? 0) - ($r->paid_total ?? 0));
-            }
-        });
 
-        // Data tabel (paginate)
-        $invoices = $query
+        // chunk supaya aman & gunakan withSum agar kolom agregat tersedia
+        (clone $query)->select(['id', 'total', 'paid_total'])
+            ->withSum('payments', 'amount')
+            ->chunk(1000, function ($rows) use (&$summary) {
+                foreach ($rows as $row) {
+                    $paidEff = ($row->paid_total !== null)
+                    ? (float) $row->paid_total
+                    : (float) ($row->payments_sum_amount ?? 0);
+                    $summary['paid_total'] += $paidEff;
+                    $summary['outstanding'] += max(0, (float) ($row->total ?? 0) - $paidEff);
+                }
+            });
+
+        // ===== Data tabel (paginate) =====
+        $invoices = (clone $query)
             ->select(['id', 'code', 'supplier_id', 'date', 'total', 'paid_total', 'status', 'note'])
+            ->withSum('payments', 'amount') // pastikan ikut di halaman berikutnya
             ->paginate(50)
             ->withQueryString();
 
@@ -139,6 +164,36 @@ class PurchaseInvoiceController extends Controller
         return view('purchasing.create', compact(
             'invoiceNo', 'suppliers', 'items', 'classes', 'lastPrices', 'lastPricesBySupplier'
         ));
+    }
+
+    public function show($id)
+    {
+        $invoice = PurchaseInvoice::with([
+            'supplier:id,store_name,code,phone',
+            'lines' => function ($q) {
+                $q->orderBy('id');
+            },
+            'lines.item:id,code,name,unit',
+            'payments' => function ($q) {
+                $q->orderByDesc('date')->orderByDesc('id');
+            },
+        ])->findOrFail($id);
+
+        // hitung ringkasan
+        $total = (float) $invoice->total;
+        $paidTotal = (float) ($invoice->paid_total ?? $invoice->payments->sum('amount'));
+        $outstanding = max(0, $total - $paidTotal);
+
+        // badge class
+        $badge = match ($invoice->status) {
+            'DRAFT' => 'badge-draft',
+            'TERBIT' => 'badge-terbit',
+            'SEBAGIAN' => 'badge-sebagian',
+            'LUNAS' => 'badge-lunas',
+            default => 'badge-terbit',
+        };
+
+        return view('purchasing.show', compact('invoice', 'total', 'paidTotal', 'outstanding', 'badge'));
     }
 
     /**

@@ -38,6 +38,12 @@
             color: var(--text)
         }
 
+        .btn-ghost {
+            background: transparent;
+            border: 1px solid var(--line);
+            color: var(--text)
+        }
+
         .kpi {
             padding: 1rem
         }
@@ -98,7 +104,8 @@
             overflow: hidden;
             border: 1px solid var(--line);
             border-radius: 14px;
-            margin-bottom: 10px
+            margin-bottom: 10px;
+            touch-action: pan-y;
         }
 
         .swipe-actions {
@@ -110,7 +117,8 @@
             align-items: stretch;
             padding: 0 8px;
             background: linear-gradient(90deg, rgba(11, 19, 36, 0), rgba(11, 19, 36, .85));
-            pointer-events: none
+            pointer-events: none;
+            z-index: 1;
         }
 
         .swipe-actions .btn {
@@ -181,10 +189,6 @@
             color: #fde68a
         }
 
-        .pay-cta {
-            white-space: nowrap
-        }
-
         .infinite-spinner {
             display: flex;
             justify-content: center;
@@ -247,7 +251,8 @@
                 <div class="card kpi text-center">
                     <div class="label">Sisa</div>
                     @php $out = (float)($summary['outstanding'] ?? 0); @endphp
-                    <div class="value mono {{ $out > 0 ? 'highlight-sisa' : '' }}">Rp {{ number_format($out, 0, ',', '.') }}</div>
+                    <div class="value mono {{ $out > 0 ? 'highlight-sisa' : '' }}">Rp {{ number_format($out, 0, ',', '.') }}
+                    </div>
                 </div>
             </div>
         </div>
@@ -272,7 +277,8 @@
             <div id="mobileList" class="list-mobile">
                 @forelse ($invoices as $row)
                     @php
-                        $sisa = max(0, (float) $row->total - (float) $row->paid_total);
+                        $paidEff = $row->paid_total ?? ($row->payments_sum_amount ?? 0);
+                        $sisa = max(0, (float) $row->total - (float) $paidEff);
                         $dateTxt = \Carbon\Carbon::parse($row->date)->format('d/m/Y');
                         $badge = match ($row->status) {
                             'DRAFT' => 'badge-draft',
@@ -284,22 +290,23 @@
                     @endphp
                     <div class="swipe-row" data-id="{{ $row->id }}">
                         <div class="swipe-actions">
-                            <button class="btn btn-outline-secondary btn-sm" data-action="detail"
-                                data-id="{{ $row->id }}">
+                            <a href="{{ url('purchasing/' . $row->id) }}" class="btn btn-outline-secondary btn-sm">
                                 <i class="bi bi-eye"></i> Detail
-                            </button>
-                            <button class="btn btn-soft btn-sm" data-action="pay" data-id="{{ $row->id }}"
-                                data-code="{{ $row->code }}" data-date="{{ $row->date }}"
-                                data-remaining="{{ (int) $sisa }}" data-total="{{ (int) $row->total }}"
-                                data-paid="{{ (int) $row->paid_total }}">
-                                <i class="bi bi-cash-coin"></i> Bayar
-                            </button>
+                            </a>
                         </div>
                         <div class="swipe-content">
                             <div class="row-card">
                                 <div class="row-top">
                                     <div class="code mono">{{ $row->code }}</div>
-                                    <span class="badge {{ $badge }}">{{ $row->status }}</span>
+                                    <div class="d-flex align-items-center gap-1">
+                                        <span class="badge {{ $badge }} me-1">{{ $row->status }}</span>
+                                        {{-- tombol detail selalu terlihat di mobile --}}
+                                        <a href="{{ url('purchasing/' . $row->id) }}"
+                                            class="btn btn-ghost btn-sm d-inline d-sm-none" title="Detail"
+                                            aria-label="Detail">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </div>
                                 </div>
                                 <div class="supplier small">{{ $row->supplier->store_name ?? '—' }}</div>
                                 <div class="meta small">
@@ -308,7 +315,7 @@
                                 </div>
                                 <div class="amounts mt-1">
                                     <div class="label">Dibayar</div>
-                                    <div class="value mono">Rp {{ number_format($row->paid_total, 0, ',', '.') }}</div>
+                                    <div class="value mono">Rp {{ number_format($paidEff, 0, ',', '.') }}</div>
                                     <div class="label">Sisa</div>
                                     <div class="value mono {{ $sisa > 0 ? 'highlight-sisa' : '' }}">Rp
                                         {{ number_format($sisa, 0, ',', '.') }}</div>
@@ -350,7 +357,8 @@
                     <tbody id="desktopTableBody">
                         @forelse ($invoices as $row)
                             @php
-                                $sisa = max(0, (float) $row->total - (float) $row->paid_total);
+                                $paidEff = $row->paid_total ?? ($row->payments_sum_amount ?? 0);
+                                $sisa = max(0, (float) $row->total - (float) $paidEff);
                                 $dateTxt = \Carbon\Carbon::parse($row->date)->format('d/m/Y');
                                 $badge = match ($row->status) {
                                     'DRAFT' => 'badge-draft',
@@ -365,17 +373,14 @@
                                 <td>{{ $row->supplier->store_name ?? '—' }}</td>
                                 <td>{{ $dateTxt }}</td>
                                 <td class="text-end mono">Rp {{ number_format($row->total, 0, ',', '.') }}</td>
-                                <td class="text-end mono">Rp {{ number_format($row->paid_total, 0, ',', '.') }}</td>
+                                <td class="text-end mono">Rp {{ number_format($paidEff, 0, ',', '.') }}</td>
                                 <td class="text-end mono {{ $sisa > 0 ? 'text-warning' : '' }}">Rp
                                     {{ number_format($sisa, 0, ',', '.') }}</td>
                                 <td><span class="badge {{ $badge }}">{{ $row->status }}</span></td>
                                 <td class="text-end">
-                                    <button class="btn btn-soft btn-sm" data-action="pay" data-id="{{ $row->id }}"
-                                        data-code="{{ $row->code }}" data-date="{{ $row->date }}"
-                                        data-remaining="{{ (int) $sisa }}" data-total="{{ (int) $row->total }}"
-                                        data-paid="{{ (int) $row->paid_total }}">
-                                        <i class="bi bi-cash-coin me-1"></i> Bayar
-                                    </button>
+                                    <a href="{{ url('purchasing/' . $row->id) }}" class="btn btn-outline-secondary btn-sm">
+                                        <i class="bi bi-eye me-1"></i> Detail
+                                    </a>
                                 </td>
                             </tr>
                         @empty
@@ -397,136 +402,22 @@
         </div>
 
     </div>
-
-    {{-- Modal Tambah Pembayaran --}}
-    <div class="modal fade" id="payModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <form method="POST" class="modal-content card" id="payForm">
-                @csrf
-                <div class="modal-header">
-                    <h5 class="modal-title">Tambah Pembayaran</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-2">
-                        <div class="small muted">Faktur</div>
-                        <div class="fw-semibold" id="payInvCode">—</div>
-                    </div>
-                    <div class="row g-2">
-                        <div class="col-sm-6">
-                            <label class="form-label">Tanggal</label>
-                            <input type="date" class="form-control" name="date" id="payDate" required>
-                        </div>
-                        <div class="col-sm-6">
-                            <label class="form-label">Akun</label>
-                            <select name="account" class="form-select" id="payAccount" required>
-                                <option value="CASH">Cash</option>
-                                <option value="JAGO">Jago</option>
-                                <option value="BCA">BCA</option>
-                                <option value="SEABANK">SeaBank</option>
-                                <option value="TRANSFER">Transfer</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="mt-2">
-                        <label class="form-label">Jumlah</label>
-                        <input type="text" inputmode="numeric" class="form-control text-end" id="payAmountDisplay"
-                            placeholder="Rp0">
-                        <input type="hidden" name="amount" id="payAmount">
-                        <div class="form-text muted">
-                            Sisa saat ini: <span class="mono" id="payRemainText">Rp0</span>
-                        </div>
-                    </div>
-                    <div class="mt-2">
-                        <label class="form-label">Catatan (opsional)</label>
-                        <input type="text" name="note" class="form-control" placeholder="No ref/ket lainnya">
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-light">Simpan Pembayaran</button>
-                </div>
-            </form>
-        </div>
-    </div>
 @endsection
 
 @push('scripts')
     <script>
-        /* ===== Helpers ===== */
-        const rupiah = n => new Intl.NumberFormat('id-ID', {
-            style: 'currency',
-            currency: 'IDR',
-            minimumFractionDigits: 0
-        }).format(Math.round(n || 0));
-        const intFromCur = s => parseInt(String(s || '').replace(/[^\d]/g, '') || '0', 10);
+        /* ===== Swipe Row (Mobile) - versi dengan tap threshold ===== */
+        const openOffset = 140; // px: lebar area actions saat terbuka
+        const TAP_SLOP = 8; // px: gerakan < ini dianggap TAP
+        const SWIPE_TRIGGER = openOffset / 2; // ambang buka/close
 
-        /* ===== Modal Bayar ===== */
-        const payModalEl = document.getElementById('payModal');
-        const payForm = document.getElementById('payForm');
-        const payInvCode = document.getElementById('payInvCode');
-        const payDate = document.getElementById('payDate');
-        const payAccount = document.getElementById('payAccount');
-        const payAmountDisplay = document.getElementById('payAmountDisplay');
-        const payAmount = document.getElementById('payAmount');
-        const payRemainText = document.getElementById('payRemainText');
-
-        function setPayAmount(val) {
-            const raw = Math.max(0, intFromCur(val));
-            payAmount.value = String(raw);
-            payAmountDisplay.value = rupiah(raw);
-            return raw;
-        }
-        payAmountDisplay.addEventListener('input', () => setPayAmount(payAmountDisplay.value));
-
-        function openPayModal(inv) {
-            payInvCode.textContent = inv.code || '—';
-            payDate.value = (inv.date || new Date().toISOString().slice(0, 10));
-            payAccount.value = 'CASH';
-            setPayAmount(inv.remain || 0);
-            payRemainText.textContent = rupiah(inv.remain || 0);
-            payForm.setAttribute('action', `{{ url('purchasing') }}/${inv.id}/payments`);
-            new bootstrap.Modal(payModalEl).show();
-        }
-
-        function bindPayButtons(root = document) {
-            root.querySelectorAll('[data-action="pay"]').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const inv = {
-                        id: btn.dataset.id,
-                        code: btn.dataset.code,
-                        date: btn.dataset.date,
-                        total: parseInt(btn.dataset.total || '0', 10),
-                        paid: parseInt(btn.dataset.paid || '0', 10),
-                        remain: parseInt(btn.dataset.remaining || '0', 10),
-                    };
-                    openPayModal(inv);
-                });
-            });
-        }
-        bindPayButtons(document);
-
-        payForm.addEventListener('submit', (e) => {
-            const raw = intFromCur(payAmountDisplay.value);
-            const remain = intFromCur(payRemainText.textContent);
-            if (raw <= 0) {
-                e.preventDefault();
-                alert('Jumlah pembayaran harus lebih dari 0.');
-                return;
-            }
-            if (raw > remain) {
-                e.preventDefault();
-                setPayAmount(remain);
-            }
-        });
-
-        /* ===== Swipe Row (Mobile) ===== */
-        const openOffset = 140; // px content digeser untuk nampilin actions
         function setupSwipeRow(row) {
             const content = row.querySelector('.swipe-content');
             let startX = 0,
                 currentX = 0,
                 isDragging = false,
                 opened = false;
+            let startTarget = null;
 
             function setX(x) {
                 content.style.transform = `translateX(${x}px)`;
@@ -543,7 +434,10 @@
             }
 
             row.addEventListener('touchstart', (e) => {
-                startX = e.touches[0].clientX;
+                const t = e.touches[0];
+                startX = t.clientX;
+                currentX = startX;
+                startTarget = e.target;
                 isDragging = true;
             }, {
                 passive: true
@@ -551,16 +445,19 @@
 
             row.addEventListener('touchmove', (e) => {
                 if (!isDragging) return;
-                currentX = e.touches[0].clientX;
+                const t = e.touches[0];
+                currentX = t.clientX;
                 const dx = currentX - startX;
-                if (dx < 0) { // geser ke kiri
+
+                // hanya block default bila benar-benar swipe horizontal
+                if (dx < -TAP_SLOP) {
+                    // geser kiri (buka)
                     e.preventDefault();
                     setX(Math.max(-openOffset, dx));
-                } else { // geser kanan untuk close
-                    if (opened) {
-                        e.preventDefault();
-                        setX(Math.min(0, -openOffset + dx));
-                    }
+                } else if (opened && dx > TAP_SLOP) {
+                    // geser kanan (tutup)
+                    e.preventDefault();
+                    setX(Math.min(0, -openOffset + dx));
                 }
             }, {
                 passive: false
@@ -569,25 +466,43 @@
             row.addEventListener('touchend', () => {
                 if (!isDragging) return;
                 isDragging = false;
+
                 const matrix = new WebKitCSSMatrix(getComputedStyle(content).transform);
-                const tx = matrix.m41; // translateX
-                if (tx < -openOffset / 2) {
-                    open();
-                } else {
-                    close();
+                const tx = matrix.m41; // translateX (negatif = geser kiri)
+                const movedX = Math.abs(currentX - startX);
+
+                // TAP fallback
+                if (movedX < TAP_SLOP) {
+                    const tappable = startTarget?.closest('a, button, [data-action="detail"]');
+                    if (tappable) {
+                        if (tappable.tagName === 'A' && tappable.href) {
+                            window.location.href = tappable.href;
+                        } else if (tappable.dataset?.action === 'detail' && tappable.dataset?.id) {
+                            window.location.href = `{{ url('purchasing') }}/${tappable.dataset.id}`;
+                        }
+                    }
+                    return;
                 }
+
+                // Swipe settle
+                if (tx < -SWIPE_TRIGGER) open();
+                else close();
             });
 
             // tap di luar untuk close
             document.addEventListener('touchstart', (e) => {
-                if (!row.contains(e.target) && opened) {
-                    close();
-                }
+                if (!row.contains(e.target) && opened) close();
             }, {
                 passive: true
             });
+
+            // tombol/anchor di swipe-actions jangan mengganggu gesture induk
+            row.querySelectorAll('.swipe-actions a, .swipe-actions button').forEach(el => {
+                el.addEventListener('click', (e) => e.stopPropagation());
+            });
         }
 
+        // Init awal
         document.querySelectorAll('.swipe-row').forEach(setupSwipeRow);
 
         /* ===== Infinite Scroll (Mobile) ===== */
@@ -611,7 +526,6 @@
                             }
                         });
                         const html = await res.text();
-                        // Parse dokumen hasil
                         const doc = new DOMParser().parseFromString(html, 'text/html');
 
                         // Ambil kartu mobile baru
@@ -619,20 +533,17 @@
                             const imported = document.importNode(node, true);
                             mobileList.appendChild(imported);
                             setupSwipeRow(imported);
-                            bindPayButtons(imported);
                         });
 
                         // Update next link
                         const nextA = doc.querySelector('#mobilePagination a[rel="next"]');
                         nextUrl = nextA ? nextA.href : null;
 
-                        // Jika tidak ada next, sembunyikan sentinel
                         if (!nextUrl) {
                             sentinel.style.display = 'none';
                         }
                     } catch (err) {
                         console.error(err);
-                        // hentikan infinite jika error
                         nextUrl = null;
                         sentinel.style.display = 'none';
                     } finally {
