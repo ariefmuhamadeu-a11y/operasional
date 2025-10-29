@@ -19,6 +19,7 @@ class PurchaseInvoice extends Model
         'paid_total', // boleh tetap ada jika kamu maintain kolom ini
         'status', // DRAFT | TERBIT | SEBAGIAN | LUNAS
         'note',
+        'operator_id',
     ];
 
     protected $casts = [
@@ -78,5 +79,11 @@ class PurchaseInvoice extends Model
             'LUNAS' => 'badge-lunas',
             default => 'badge-terbit',
         };
+    }
+
+    // ⇩ Tambahan: operator / PIC (ambil dari tabel employees)
+    public function operator()
+    {
+        return $this->belongsTo(Employee::class, 'operator_id');
     }
 }

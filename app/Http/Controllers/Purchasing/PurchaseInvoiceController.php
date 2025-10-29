@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Purchasing;
 
 use App\Http\Controllers\Controller;
+use App\Models\Employee;
 use App\Models\Item;
 use App\Models\ItemClass;
 use App\Models\PurchaseInvoice;
@@ -22,6 +23,112 @@ class PurchaseInvoiceController extends Controller
      * View: resources/views/purchasing/index.blade.php
      * Route name: purchasing.index
      */
+    // public function index(Request $r)
+    // {
+    //     $q = trim((string) $r->get('q', ''));
+    //     $supplierId = $r->integer('supplier_id');
+    //     $status = $r->get('status');
+    //     $classId = $r->integer('item_class_id');
+    //     $unpaidOnly = (bool) $r->boolean('unpaid_only');
+    //     $dateFrom = $r->get('date_from');
+    //     $dateTo = $r->get('date_to');
+
+    //     // ===== Base query + eager + aggregate (sum payments) =====
+    //     $query = PurchaseInvoice::query()
+    //         ->with(['supplier:id,store_name'])
+    //         ->withSum('payments', 'amount') // -> payments_sum_amount
+    //         ->orderByDesc('date')
+    //         ->orderByDesc('id');
+
+    //     // ===== Filters =====
+    //     if ($q !== '') {
+    //         $query->where(function ($w) use ($q) {
+    //             $w->where('code', 'like', "%{$q}%")
+    //                 ->orWhereHas('supplier', fn($s) => $s->where('store_name', 'like', "%{$q}%"));
+    //         });
+    //     }
+    //     if ($supplierId) {
+    //         $query->where('supplier_id', $supplierId);
+    //     }
+    //     if (in_array($status, ['DRAFT', 'TERBIT', 'SEBAGIAN', 'LUNAS'], true)) {
+    //         $query->where('status', $status);
+    //     }
+    //     if ($dateFrom) {$query->whereDate('date', '>=', $dateFrom);}
+    //     if ($dateTo) {$query->whereDate('date', '<=', $dateTo);}
+
+    //     // unpaidOnly:
+    //     // - kalau kolom paid_total dirawat → cukup whereColumn(paid_total < total)
+    //     // - kalau tidak, fallback ke subquery SUM(payments.amount)
+    //     if ($unpaidOnly) {
+    //         $query->where(function ($w) {
+    //             $w->whereColumn('paid_total', '<', 'total') // case: kolom paid_total ada & dipakai
+    //                 ->orWhereRaw(
+    //                     // fallback: kalau paid_total NULL/0 tapi ada payment, pakai sum payments
+    //                     '(COALESCE(paid_total, 0) = 0 AND (SELECT COALESCE(SUM(pp.amount),0)
+    //                   FROM purchase_payments pp
+    //                   WHERE pp.purchase_invoice_id = purchase_invoices.id) < total)'
+    //                 );
+    //         });
+    //     }
+
+    //     if ($classId) {
+    //         $query->whereHas('lines', fn($l) => $l->where('item_class_id', $classId));
+    //     }
+
+    //     // ===== Summary (pakai effective paid: paid_total ?? payments_sum_amount) =====
+    //     $summary = [
+    //         'count' => (int) (clone $query)->count(),
+    //         'total' => (float) (clone $query)->sum('total'),
+    //         'paid_total' => 0.0,
+    //         'outstanding' => 0.0,
+    //     ];
+
+    //     // chunk supaya aman & gunakan withSum agar kolom agregat tersedia
+    //     (clone $query)->select(['id', 'total', 'paid_total'])
+    //         ->withSum('payments', 'amount')
+    //         ->chunk(1000, function ($rows) use (&$summary) {
+    //             foreach ($rows as $row) {
+    //                 $paidEff = ($row->paid_total !== null)
+    //                 ? (float) $row->paid_total
+    //                 : (float) ($row->payments_sum_amount ?? 0);
+    //                 $summary['paid_total'] += $paidEff;
+    //                 $summary['outstanding'] += max(0, (float) ($row->total ?? 0) - $paidEff);
+    //             }
+    //         });
+
+    //     // ===== Data tabel (paginate) =====
+    //     $invoices = (clone $query)
+    //         ->select(['id', 'code', 'supplier_id', 'date', 'total', 'paid_total', 'status', 'note'])
+    //         ->withSum('payments', 'amount') // pastikan ikut di halaman berikutnya
+    //         ->paginate(50)
+    //         ->withQueryString();
+
+    //     $supplierOptions = Supplier::orderBy('store_name')->get(['id', 'store_name']);
+    //     $classOptions = ItemClass::orderBy('name')->get(['id', 'code', 'name']);
+
+    //     if ($r->wantsJson()) {
+    //         return response()->json([
+    //             'filters' => compact('q', 'supplierId', 'status', 'classId', 'unpaidOnly', 'dateFrom', 'dateTo'),
+    //             'summary' => $summary,
+    //             'invoices' => $invoices,
+    //         ]);
+    //     }
+
+    //     return view('purchasing.index', [
+    //         'invoices' => $invoices,
+    //         'summary' => $summary,
+    //         'supplierOptions' => $supplierOptions,
+    //         'classOptions' => $classOptions,
+    //         'q' => $q,
+    //         'supplierId' => $supplierId,
+    //         'status' => $status,
+    //         'classId' => $classId,
+    //         'unpaidOnly' => $unpaidOnly,
+    //         'dateFrom' => $dateFrom,
+    //         'dateTo' => $dateTo,
+    //     ]);
+    // }
+
     public function index(Request $r)
     {
         $q = trim((string) $r->get('q', ''));
@@ -34,7 +141,10 @@ class PurchaseInvoiceController extends Controller
 
         // ===== Base query + eager + aggregate (sum payments) =====
         $query = PurchaseInvoice::query()
-            ->with(['supplier:id,store_name'])
+            ->with([
+                'supplier:id,store_name',
+                'operator:id,name', // ⇦ muat operator
+            ])
             ->withSum('payments', 'amount') // -> payments_sum_amount
             ->orderByDesc('date')
             ->orderByDesc('id');
@@ -43,7 +153,8 @@ class PurchaseInvoiceController extends Controller
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
                 $w->where('code', 'like', "%{$q}%")
-                    ->orWhereHas('supplier', fn($s) => $s->where('store_name', 'like', "%{$q}%"));
+                    ->orWhereHas('supplier', fn($s) => $s->where('store_name', 'like', "%{$q}%"))
+                    ->orWhereHas('operator', fn($o) => $o->where('name', 'like', "%{$q}%")); // cari juga via operator
             });
         }
         if ($supplierId) {
@@ -55,18 +166,12 @@ class PurchaseInvoiceController extends Controller
         if ($dateFrom) {$query->whereDate('date', '>=', $dateFrom);}
         if ($dateTo) {$query->whereDate('date', '<=', $dateTo);}
 
-        // unpaidOnly:
-        // - kalau kolom paid_total dirawat → cukup whereColumn(paid_total < total)
-        // - kalau tidak, fallback ke subquery SUM(payments.amount)
         if ($unpaidOnly) {
             $query->where(function ($w) {
-                $w->whereColumn('paid_total', '<', 'total') // case: kolom paid_total ada & dipakai
-                    ->orWhereRaw(
-                        // fallback: kalau paid_total NULL/0 tapi ada payment, pakai sum payments
-                        '(COALESCE(paid_total, 0) = 0 AND (SELECT COALESCE(SUM(pp.amount),0)
-                      FROM purchase_payments pp
-                      WHERE pp.purchase_invoice_id = purchase_invoices.id) < total)'
-                    );
+                $w->whereColumn('paid_total', '<', 'total')
+                    ->orWhereRaw('(COALESCE(paid_total, 0) = 0 AND (SELECT COALESCE(SUM(pp.amount),0)
+                        FROM purchase_payments pp
+                        WHERE pp.purchase_invoice_id = purchase_invoices.id) < total)');
             });
         }
 
@@ -74,7 +179,7 @@ class PurchaseInvoiceController extends Controller
             $query->whereHas('lines', fn($l) => $l->where('item_class_id', $classId));
         }
 
-        // ===== Summary (pakai effective paid: paid_total ?? payments_sum_amount) =====
+        // ===== Summary =====
         $summary = [
             'count' => (int) (clone $query)->count(),
             'total' => (float) (clone $query)->sum('total'),
@@ -82,7 +187,6 @@ class PurchaseInvoiceController extends Controller
             'outstanding' => 0.0,
         ];
 
-        // chunk supaya aman & gunakan withSum agar kolom agregat tersedia
         (clone $query)->select(['id', 'total', 'paid_total'])
             ->withSum('payments', 'amount')
             ->chunk(1000, function ($rows) use (&$summary) {
@@ -97,8 +201,8 @@ class PurchaseInvoiceController extends Controller
 
         // ===== Data tabel (paginate) =====
         $invoices = (clone $query)
-            ->select(['id', 'code', 'supplier_id', 'date', 'total', 'paid_total', 'status', 'note'])
-            ->withSum('payments', 'amount') // pastikan ikut di halaman berikutnya
+            ->select(['id', 'code', 'supplier_id', 'operator_id', 'date', 'total', 'paid_total', 'status', 'note']) // ⇦ operator_id ikut diseleksi
+            ->withSum('payments', 'amount')
             ->paginate(50)
             ->withQueryString();
 
@@ -147,6 +251,8 @@ class PurchaseInvoiceController extends Controller
             'id', 'code', 'name', 'unit', 'item_class_id', 'category_id',
         ]);
 
+        $operators = Employee::operational()->orderBy('name')->get(['id', 'name']);
+
         // Harga terakhir per supplier
         $lastPricesBySupplier = SupplierItemPrice::query()
             ->get(['supplier_id', 'item_id', 'last_price'])
@@ -160,9 +266,8 @@ class PurchaseInvoiceController extends Controller
             ->pluck('p', 'item_id');
 
         $classes = ItemClass::orderBy('name')->get(['id', 'code', 'name']);
-
         return view('purchasing.create', compact(
-            'invoiceNo', 'suppliers', 'items', 'classes', 'lastPrices', 'lastPricesBySupplier'
+            'invoiceNo', 'suppliers', 'items', 'lastPrices', 'lastPricesBySupplier', 'operators'
         ));
     }
 
@@ -170,21 +275,16 @@ class PurchaseInvoiceController extends Controller
     {
         $invoice = PurchaseInvoice::with([
             'supplier:id,store_name,code,phone',
-            'lines' => function ($q) {
-                $q->orderBy('id');
-            },
+            'operator:id,name', // jika ada kolom operator_id
+            'lines' => fn($q) => $q->orderBy('id'),
             'lines.item:id,code,name,unit',
-            'payments' => function ($q) {
-                $q->orderByDesc('date')->orderByDesc('id');
-            },
+            'payments' => fn($q) => $q->orderByDesc('date')->orderByDesc('id'),
         ])->findOrFail($id);
 
-        // hitung ringkasan
         $total = (float) $invoice->total;
         $paidTotal = (float) ($invoice->paid_total ?? $invoice->payments->sum('amount'));
         $outstanding = max(0, $total - $paidTotal);
 
-        // badge class
         $badge = match ($invoice->status) {
             'DRAFT' => 'badge-draft',
             'TERBIT' => 'badge-terbit',
@@ -193,7 +293,13 @@ class PurchaseInvoiceController extends Controller
             default => 'badge-terbit',
         };
 
-        return view('purchasing.show', compact('invoice', 'total', 'paidTotal', 'outstanding', 'badge'));
+        return view('purchasing.show', [
+            'invoice' => $invoice,
+            'total' => $total,
+            'paidTotal' => $paidTotal,
+            'outstanding' => $outstanding,
+            'badge' => $badge,
+        ]);
     }
 
     /**
@@ -203,11 +309,16 @@ class PurchaseInvoiceController extends Controller
     public function store(Request $r)
     {
         $data = $r->validate([
-            'supplier_id' => 'required|exists:suppliers,id',
             'date' => 'required|date',
             'due_date' => 'nullable|date',
-            'note' => 'nullable|string',
+            'supplier_id' => 'required|exists:suppliers,id',
+            'operator_id' => 'required|exists:employees,id', // <— tambah ini
             'other_costs' => 'nullable|numeric|min:0',
+            'paid_now' => 'nullable|numeric|min:0',
+            'paid_account' => 'nullable|string|max:20',
+            'paid_note' => 'nullable|string|max:255',
+            'note' => 'nullable|string',
+
             'lines' => 'required|array|min:1',
             'lines.*.item_id' => 'nullable|exists:items,id',
             'lines.*.item_class_id' => 'required|exists:item_classes,id',
@@ -215,11 +326,6 @@ class PurchaseInvoiceController extends Controller
             'lines.*.qty' => 'required|numeric|min:0.001',
             'lines.*.unit' => 'nullable|string|max:16',
             'lines.*.price' => 'required|numeric|min:0',
-
-            // pembayaran awal
-            'paid_now' => 'nullable|numeric|min:0',
-            'paid_account' => 'nullable|string|max:32',
-            'paid_note' => 'nullable|string|max:200',
         ]);
 
         return DB::transaction(function () use ($data) {
@@ -271,6 +377,7 @@ class PurchaseInvoiceController extends Controller
                 'paid_total' => 0,
                 'status' => 'TERBIT',
                 'note' => $data['note'] ?? null,
+                'operator_id' => $data['operator_id'],
             ]);
 
             // Detail

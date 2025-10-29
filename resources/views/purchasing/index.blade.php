@@ -157,7 +157,7 @@
 
         .meta {
             display: flex;
-            gap: .75rem;
+            gap: .5rem;
             flex-wrap: wrap
         }
 
@@ -166,7 +166,7 @@
             border-radius: 999px;
             padding: .1rem .6rem;
             color: #cdd6e5;
-            font-size: .85rem
+            font-size: .8rem
         }
 
         .amounts {
@@ -196,7 +196,7 @@
             color: #c2c9d6
         }
 
-        @media (min-width: 576px) {
+        @media (min-width:576px) {
             .filters-sticky {
                 position: sticky;
                 top: 0;
@@ -248,9 +248,9 @@
                 </div>
             </div>
             <div class="col-6 col-md-3">
+                @php $out = (float)($summary['outstanding'] ?? 0); @endphp
                 <div class="card kpi text-center">
                     <div class="label">Sisa</div>
-                    @php $out = (float)($summary['outstanding'] ?? 0); @endphp
                     <div class="value mono {{ $out > 0 ? 'highlight-sisa' : '' }}">Rp {{ number_format($out, 0, ',', '.') }}
                     </div>
                 </div>
@@ -287,6 +287,7 @@
                             'LUNAS' => 'badge-lunas',
                             default => 'badge-terbit',
                         };
+                        $opr = $row->operator->name ?? '—';
                     @endphp
                     <div class="swipe-row" data-id="{{ $row->id }}">
                         <div class="swipe-actions">
@@ -300,7 +301,6 @@
                                     <div class="code mono">{{ $row->code }}</div>
                                     <div class="d-flex align-items-center gap-1">
                                         <span class="badge {{ $badge }} me-1">{{ $row->status }}</span>
-                                        {{-- tombol detail selalu terlihat di mobile --}}
                                         <a href="{{ url('purchasing/' . $row->id) }}"
                                             class="btn btn-ghost btn-sm d-inline d-sm-none" title="Detail"
                                             aria-label="Detail">
@@ -308,11 +308,16 @@
                                         </a>
                                     </div>
                                 </div>
+
                                 <div class="supplier small">{{ $row->supplier->store_name ?? '—' }}</div>
+
                                 <div class="meta small">
                                     <span class="chip"><i class="bi bi-calendar2 me-1"></i>{{ $dateTxt }}</span>
+                                    <span class="chip"><i class="bi bi-person-workspace me-1"></i>OPR:
+                                        {{ $opr }}</span>
                                     <span class="chip mono">Total: Rp {{ number_format($row->total, 0, ',', '.') }}</span>
                                 </div>
+
                                 <div class="amounts mt-1">
                                     <div class="label">Dibayar</div>
                                     <div class="value mono">Rp {{ number_format($paidEff, 0, ',', '.') }}</div>
@@ -328,10 +333,7 @@
                 @endforelse
             </div>
 
-            {{-- Pagination container (hidden) + sentinel --}}
-            <div id="mobilePagination" class="d-none">
-                {{ $invoices->onEachSide(1)->links() }}
-            </div>
+            <div id="mobilePagination" class="d-none">{{ $invoices->onEachSide(1)->links() }}</div>
             <div id="infiniteSentinel" class="infinite-spinner">
                 <div class="spinner-border spinner-border-sm" role="status"></div>
                 <span class="ms-2">Memuat...</span>
@@ -344,13 +346,14 @@
                 <table class="table table-dark table-hover align-middle mb-0">
                     <thead>
                         <tr>
-                            <th style="width:18%">Kode</th>
+                            <th style="width:16%">Kode</th>
                             <th>Supplier</th>
+                            <th style="width:14%">Operator</th> {{-- ⇦ kolom baru --}}
                             <th style="width:12%">Tanggal</th>
                             <th style="width:12%" class="text-end">Total</th>
                             <th style="width:12%" class="text-end">Dibayar</th>
                             <th style="width:12%" class="text-end">Sisa</th>
-                            <th style="width:10%">Status</th>
+                            <th style="width:12%">Status</th>
                             <th style="width:14%" class="text-end">Aksi</th>
                         </tr>
                     </thead>
@@ -371,6 +374,7 @@
                             <tr>
                                 <td class="mono">{{ $row->code }}</td>
                                 <td>{{ $row->supplier->store_name ?? '—' }}</td>
+                                <td>{{ $row->operator->name ?? '—' }}</td> {{-- ⇦ tampilkan operator --}}
                                 <td>{{ $dateTxt }}</td>
                                 <td class="text-end mono">Rp {{ number_format($row->total, 0, ',', '.') }}</td>
                                 <td class="text-end mono">Rp {{ number_format($paidEff, 0, ',', '.') }}</td>
@@ -385,7 +389,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center text-muted py-4">Tidak ada data.</td>
+                                <td colspan="9" class="text-center text-muted py-4">Tidak ada data.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -394,8 +398,10 @@
 
             @if ($invoices->hasPages())
                 <div class="p-3 border-top d-flex justify-content-between align-items-center">
-                    <div class="small muted">Menampilkan {{ $invoices->firstItem() }}–{{ $invoices->lastItem() }} dari
-                        {{ $invoices->total() }}</div>
+                    <div class="small muted">
+                        Menampilkan {{ $invoices->firstItem() }}–{{ $invoices->lastItem() }} dari
+                        {{ $invoices->total() }}
+                    </div>
                     <div id="desktopPagination">{{ $invoices->onEachSide(1)->links() }}</div>
                 </div>
             @endif
@@ -406,32 +412,27 @@
 
 @push('scripts')
     <script>
-        /* ===== Swipe Row (Mobile) - versi dengan tap threshold ===== */
-        const openOffset = 140; // px: lebar area actions saat terbuka
-        const TAP_SLOP = 8; // px: gerakan < ini dianggap TAP
-        const SWIPE_TRIGGER = openOffset / 2; // ambang buka/close
+        /* ===== Swipe Row (Mobile) ===== */
+        const openOffset = 140,
+            TAP_SLOP = 8,
+            SWIPE_TRIGGER = openOffset / 2;
 
         function setupSwipeRow(row) {
             const content = row.querySelector('.swipe-content');
             let startX = 0,
                 currentX = 0,
                 isDragging = false,
-                opened = false;
-            let startTarget = null;
-
-            function setX(x) {
-                content.style.transform = `translateX(${x}px)`;
-            }
-
-            function open() {
+                opened = false,
+                startTarget = null;
+            const setX = (x) => content.style.transform = `translateX(${x}px)`;
+            const open = () => {
                 setX(-openOffset);
                 opened = true;
-            }
-
-            function close() {
+            };
+            const close = () => {
                 setX(0);
                 opened = false;
-            }
+            };
 
             row.addEventListener('touchstart', (e) => {
                 const t = e.touches[0];
@@ -449,13 +450,10 @@
                 currentX = t.clientX;
                 const dx = currentX - startX;
 
-                // hanya block default bila benar-benar swipe horizontal
                 if (dx < -TAP_SLOP) {
-                    // geser kiri (buka)
                     e.preventDefault();
                     setX(Math.max(-openOffset, dx));
                 } else if (opened && dx > TAP_SLOP) {
-                    // geser kanan (tutup)
                     e.preventDefault();
                     setX(Math.min(0, -openOffset + dx));
                 }
@@ -466,43 +464,36 @@
             row.addEventListener('touchend', () => {
                 if (!isDragging) return;
                 isDragging = false;
-
                 const matrix = new WebKitCSSMatrix(getComputedStyle(content).transform);
-                const tx = matrix.m41; // translateX (negatif = geser kiri)
+                const tx = matrix.m41;
                 const movedX = Math.abs(currentX - startX);
 
-                // TAP fallback
                 if (movedX < TAP_SLOP) {
                     const tappable = startTarget?.closest('a, button, [data-action="detail"]');
                     if (tappable) {
-                        if (tappable.tagName === 'A' && tappable.href) {
-                            window.location.href = tappable.href;
-                        } else if (tappable.dataset?.action === 'detail' && tappable.dataset?.id) {
+                        if (tappable.tagName === 'A' && tappable.href) window.location.href = tappable.href;
+                        else if (tappable.dataset?.action === 'detail' && tappable.dataset?.id) {
                             window.location.href = `{{ url('purchasing') }}/${tappable.dataset.id}`;
                         }
                     }
                     return;
                 }
-
-                // Swipe settle
                 if (tx < -SWIPE_TRIGGER) open();
                 else close();
+            }, {
+                passive: true
             });
 
-            // tap di luar untuk close
             document.addEventListener('touchstart', (e) => {
                 if (!row.contains(e.target) && opened) close();
             }, {
                 passive: true
             });
 
-            // tombol/anchor di swipe-actions jangan mengganggu gesture induk
             row.querySelectorAll('.swipe-actions a, .swipe-actions button').forEach(el => {
                 el.addEventListener('click', (e) => e.stopPropagation());
             });
         }
-
-        // Init awal
         document.querySelectorAll('.swipe-row').forEach(setupSwipeRow);
 
         /* ===== Infinite Scroll (Mobile) ===== */
@@ -527,21 +518,14 @@
                         });
                         const html = await res.text();
                         const doc = new DOMParser().parseFromString(html, 'text/html');
-
-                        // Ambil kartu mobile baru
                         doc.querySelectorAll('#mobileList .swipe-row').forEach(node => {
                             const imported = document.importNode(node, true);
                             mobileList.appendChild(imported);
                             setupSwipeRow(imported);
                         });
-
-                        // Update next link
                         const nextA = doc.querySelector('#mobilePagination a[rel="next"]');
                         nextUrl = nextA ? nextA.href : null;
-
-                        if (!nextUrl) {
-                            sentinel.style.display = 'none';
-                        }
+                        if (!nextUrl) sentinel.style.display = 'none';
                     } catch (err) {
                         console.error(err);
                         nextUrl = null;
@@ -555,10 +539,7 @@
             rootMargin: '200px 0px'
         }) : null;
 
-        if (io && nextUrl) {
-            io.observe(sentinel);
-        } else {
-            sentinel.style.display = 'none';
-        }
+        if (io && nextUrl) io.observe(sentinel);
+        else sentinel.style.display = 'none';
     </script>
 @endpush

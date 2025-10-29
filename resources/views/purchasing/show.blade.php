@@ -11,7 +11,6 @@
             --muted: #9aa4b2;
             --text: #e6ebf1;
             --brand: #60a5fa;
-
             /* Tone khusus Riwayat Pembayaran */
             --card-pay: #0f1d19;
             --line-pay: #1b3a33;
@@ -98,11 +97,13 @@
             font-weight: 600
         }
 
-        .actions .btn+.btn {
-            margin-left: .5rem
+        .btn-soft {
+            background: rgba(255, 255, 255, .06);
+            border: 1px solid var(--line);
+            color: var(--text)
         }
 
-        /* ===== Mobile card list styles ===== */
+        /* ===== Mobile card list ===== */
         .mobile-list {
             display: none;
         }
@@ -155,22 +156,18 @@
             opacity: .7
         }
 
-        /* ===== Mobile enhancements ===== */
+        /* ===== Responsive toggles ===== */
         @media (max-width:576px) {
-            .actions-desktop {
-                display: none !important
-            }
-
-            .page-content {
-                padding-bottom: calc(80px + env(safe-area-inset-bottom));
-            }
-
             .table-desktop {
                 display: none;
             }
 
             .mobile-list {
                 display: block;
+            }
+
+            .page-content {
+                padding-bottom: calc(80px + env(safe-area-inset-bottom));
             }
         }
 
@@ -180,7 +177,7 @@
             }
         }
 
-        /* ===== Sticky bar bawah (mobile) ===== */
+        /* ===== Sticky bar (mobile) ===== */
         .mobile-sticky {
             position: fixed;
             left: 0;
@@ -223,11 +220,51 @@
             font-weight: 700
         }
 
-        .btn-soft {
-            background: rgba(255, 255, 255, .06);
-            border: 1px solid var(--line);
-            color: var(--text)
+        /* ===== Sticky bar (desktop, auto-offset sidebar) ===== */
+        .desktop-sticky {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            /* akan dioverride via JS bila sidebar fixed terdeteksi */
+            background: rgba(14, 21, 37, .94);
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+            border-top: 1px solid var(--line);
+            padding: .6rem .75rem;
+            z-index: 50;
+            display: none;
         }
+
+        .desktop-sticky .bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .75rem;
+        }
+
+        .desktop-sticky .money {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.1;
+        }
+
+        .desktop-sticky .money .cap {
+            font-size: .75rem;
+            color: var(--muted);
+        }
+
+        .desktop-sticky .money .val {
+            font-weight: 700;
+        }
+
+        @media (min-width:577px) {
+            .desktop-sticky {
+                display: block;
+            }
+        }
+
+        /* padding-bottom desktop akan diset dinamis via JS sesuai tinggi sticky */
 
         /* ===== Tone khusus RIWAYAT PEMBAYARAN ===== */
         .payments .table-desktop thead th {
@@ -261,6 +298,7 @@
             .btn,
             .modal,
             .mobile-sticky,
+            .desktop-sticky,
             .mobile-list {
                 display: none !important;
             }
@@ -408,13 +446,12 @@
             </div>
         </div>
 
-        {{-- ====== RIWAYAT PEMBAYARAN (tema hijau) ====== --}}
+        {{-- ====== RIWAYAT PEMBAYARAN ====== --}}
         <div class="card p-0 mb-3 payments">
             <div class="section pb-0">
                 <h5 class="mb-2">Riwayat Pembayaran</h5>
             </div>
 
-            {{-- Desktop Table --}}
             <div class="table-responsive table-desktop">
                 <table class="table table-dark align-middle mb-0">
                     <thead>
@@ -444,7 +481,6 @@
                 </table>
             </div>
 
-            {{-- Mobile Cards (tema hijau) --}}
             <div class="mobile-list p-3 pt-2">
                 @forelse ($invoice->payments as $p)
                     <div class="mobile-card">
@@ -471,31 +507,45 @@
             </div>
         </div>
 
-        {{-- Aksi desktop --}}
-        <div class="d-flex justify-content-between align-items-center actions actions-desktop">
-            <a href="{{ route('purchasing.index') }}" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left"></i> Kembali
-            </a>
-            <div>
-                <div>
-                    {{-- Preview (HTML, tab baru) --}}
-                    <a class="btn btn-soft" id="btnPrintPreview" href="#" target="_blank" rel="noopener">
-                        <i class="bi bi-printer"></i> Preview
-                    </a>
+        {{-- Desktop Sticky Bar (auto-offset sidebar) --}}
+        <div class="desktop-sticky" id="desktopSticky">
+            <div class="container">
+                <div class="bar">
+                    <div class="d-flex gap-4">
+                        <div class="money">
+                            <span class="cap">Total</span>
+                            <span class="val mono">Rp {{ number_format($total, 0, ',', '.') }}</span>
+                        </div>
+                        <div class="money">
+                            <span class="cap">Sisa</span>
+                            <span class="val mono {{ $outstanding > 0 ? 'text-warning' : '' }}">Rp
+                                {{ number_format($outstanding, 0, ',', '.') }}</span>
+                        </div>
+                    </div>
 
-                    {{-- PDF (download) --}}
-                    <a class="btn btn-outline-light" id="btnPrintPdf" href="#" rel="noopener">
-                        <i class="bi bi-file-earmark-pdf"></i> PDF
-                    </a>
+                    <div class="d-flex align-items-center gap-2">
+                        <a class="btn btn-outline-secondary" href="{{ route('purchasing.index') }}">
+                            <i class="bi bi-arrow-left"></i> Kembali
+                        </a>
 
-                    <button class="btn btn-primary" id="btnPay" data-id="{{ $invoice->id }}"
-                        data-code="{{ $invoice->code }}" data-date="{{ $invoice->date }}"
-                        data-remaining="{{ (int) $outstanding }}" data-total="{{ (int) $total }}"
-                        data-paid="{{ (int) $paidTotal }}">
-                        <i class="bi bi-cash-coin"></i> Tambah Pembayaran
-                    </button>
+                        {{-- Preview (HTML, tab baru) --}}
+                        <a class="btn btn-soft" id="btnPrintPreview" href="#" target="_blank" rel="noopener">
+                            <i class="bi bi-printer"></i> Preview
+                        </a>
+
+                        {{-- PDF (download) --}}
+                        <a class="btn btn-outline-light" id="btnPrintPdf" href="#" rel="noopener">
+                            <i class="bi bi-file-earmark-pdf"></i> PDF
+                        </a>
+
+                        <button class="btn btn-primary" id="btnPay" data-id="{{ $invoice->id }}"
+                            data-code="{{ $invoice->code }}" data-date="{{ $invoice->date }}"
+                            data-remaining="{{ (int) $outstanding }}" data-total="{{ (int) $total }}"
+                            data-paid="{{ (int) $paidTotal }}">
+                            <i class="bi bi-cash-coin"></i> Tambah Pembayaran
+                        </button>
+                    </div>
                 </div>
-
             </div>
         </div>
     </div>
@@ -565,19 +615,15 @@
                         <input type="text" inputmode="numeric" class="form-control text-end" id="payAmountDisplay"
                             placeholder="Rp0">
                         <input type="hidden" name="amount" id="payAmount">
-                        <div class="form-text muted">
-                            Sisa saat ini: <span class="mono" id="payRemainText">Rp
-                                {{ number_format($outstanding, 0, ',', '.') }}</span>
-                        </div>
+                        <div class="form-text muted">Sisa saat ini: <span class="mono" id="payRemainText">Rp
+                                {{ number_format($outstanding, 0, ',', '.') }}</span></div>
                     </div>
                     <div class="mt-2">
                         <label class="form-label">Catatan (opsional)</label>
                         <input type="text" name="note" class="form-control" placeholder="No ref/ket lainnya">
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-light">Simpan Pembayaran</button>
-                </div>
+                <div class="modal-footer"><button class="btn btn-light">Simpan Pembayaran</button></div>
             </form>
         </div>
     </div>
@@ -585,7 +631,7 @@
 
 @push('scripts')
     <script>
-        /* Helpers */
+        /* ===== Helpers ===== */
         const rupiah = n => new Intl.NumberFormat('id-ID', {
             style: 'currency',
             currency: 'IDR',
@@ -593,11 +639,20 @@
         }).format(Math.round(n || 0));
         const intFromCur = s => parseInt(String(s || '').replace(/[^\d]/g, '') || '0', 10);
 
-        /* Print */
-        document.getElementById('btnPrint')?.addEventListener('click', () => window.print());
+        /* ===== Print (mobile) ===== */
         document.getElementById('btnPrintMobile')?.addEventListener('click', () => window.print());
 
-        /* Modal Bayar */
+        /* ===== Set link Preview & PDF ===== */
+        (function() {
+            const preview = document.getElementById('btnPrintPreview');
+            const pdf = document.getElementById('btnPrintPdf');
+            const previewUrl = `{{ url('print/preview') }}?type=purchase_invoice&id={{ $invoice->id }}`;
+            const pdfUrl = `{{ url('print/purchase_invoice/' . $invoice->id . '/pdf') }}`;
+            if (preview) preview.href = previewUrl;
+            if (pdf) pdf.href = pdfUrl;
+        })();
+
+        /* ===== Modal Bayar ===== */
         (function() {
             const payModalEl = document.getElementById('payModal');
             const payForm = document.getElementById('payForm');
@@ -665,6 +720,69 @@
                     setPayAmount(remain);
                 }
             });
+        })();
+
+        /* ===== Auto-offset sticky desktop agar tidak tembus sidebar =====
+           - Mendeteksi .sidebar.desktop-fixed (template kamu sebelumnya).
+           - Set left & width sticky sesuai lebar sidebar.
+           - Juga set padding-bottom konten = tinggi sticky.
+        */
+        (function() {
+            const sticky = document.getElementById('desktopSticky');
+            const page = document.querySelector('.page-content');
+
+            function sidebarWidth() {
+                const sb = document.querySelector('.sidebar.desktop-fixed'); // sesuaikan selector jika perlu
+                if (!sb) return 0;
+                // Hanya saat sidebar terlihat (≥ lg) gunakan width-nya
+                const style = window.getComputedStyle(sb);
+                const disp = style.display;
+                if (disp === 'none') return 0;
+                return sb.offsetWidth || 0;
+            }
+
+            function adjustSticky() {
+                if (!sticky) return;
+                const sbw = sidebarWidth();
+
+                // Posisi & lebar sticky
+                if (sbw > 0) {
+                    sticky.style.left = sbw + 'px';
+                    sticky.style.width = `calc(100% - ${sbw}px)`;
+                } else {
+                    sticky.style.left = '0px';
+                    sticky.style.width = '100%';
+                }
+
+                // Padding-bottom konten agar tidak ketutup sticky
+                const h = sticky.getBoundingClientRect().height || 0;
+                if (page) {
+                    if (window.innerWidth >= 577) {
+                        page.style.paddingBottom = (h + 12) + 'px';
+                    } else {
+                        // mobile: sudah di-handle CSS; biarkan
+                        page.style.paddingBottom = '';
+                    }
+                }
+            }
+
+            // Panggil saat load & resize
+            window.addEventListener('load', adjustSticky);
+            window.addEventListener('resize', adjustSticky);
+
+            // Sedikit debounce untuk layout shift
+            let t = null;
+            window.addEventListener('resize', () => {
+                clearTimeout(t);
+                t = setTimeout(adjustSticky, 100);
+            });
+
+            // Observer bila sidebar berubah ukuran (misal collapse)
+            const sb = document.querySelector('.sidebar.desktop-fixed');
+            if (sb && 'ResizeObserver' in window) {
+                const ro = new ResizeObserver(adjustSticky);
+                ro.observe(sb);
+            }
         })();
     </script>
 @endpush
