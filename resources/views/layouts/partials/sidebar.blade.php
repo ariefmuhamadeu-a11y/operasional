@@ -69,10 +69,10 @@
                 <i class="bi bi-chevron-down small ms-auto"></i>
             </a>
             <div class="collapse" id="navProduksi">
-                <a href="#" class="nav-link mx-1 mb-1">
+                <a href="{{ route('production.orders.index', ['type' => 'cutting']) }}" class="nav-link mx-1 mb-1">
                     <i class="bi bi-scissors me-2"></i> Cutting
                 </a>
-                <a href="#" class="nav-link mx-1 mb-1">
+                <a href="{{ route('production.orders.index', ['type' => 'sewing']) }}" class="nav-link mx-1 mb-1">
                     <i class="bi bi-threads me-2"></i> Jahit
                 </a>
             </div>
